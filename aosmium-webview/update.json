@@ -1,0 +1,6 @@
+{
+  "version": "v1.0.0",
+  "versionCode": 10,
+  "zipUrl": "https://github.com/DresOperatingSystems/DresOS-Magisk-Modules/releases/download/aosmium-v1.0.0/DresOS-AOSmium-WebView-v1.0.0.zip",
+  "changelog": "https://raw.githubusercontent.com/DresOperatingSystems/DresOS-Magisk-Modules/main/aosmium-webview/CHANGELOG.md"
+}

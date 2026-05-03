@@ -1,0 +1,8 @@
+id=dresoswv
+name=DresOS AOSmium WebView
+version=v1.0.0
+versionCode=10
+author=DresOS
+description=Replaces the system WebView with AOSmium (Chromium 147, GrapheneOS hardened). Hides competing WebViews. No internet required - APK bundled.
+minMagisk=20400
+updateJson=https://raw.githubusercontent.com/DresOperatingSystems/DresOS-Magisk-Modules/main/aosmium-webview/update.json
