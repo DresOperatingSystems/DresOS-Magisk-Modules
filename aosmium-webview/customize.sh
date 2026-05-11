@@ -1,11 +1,20 @@
 #!/system/bin/sh
 # SPDX-License-Identifier: GPL-3.0-or-later
-# DresOS AOSmium WebView - customize.sh
+# DresOS AOSmium WebView - customize.sh v1.1.0
 # Copyright (C) 2026 DresOperatingSystems
 # https://github.com/DresOperatingSystems/DresOS-Magisk-Modules
 #
-# WebView hiding and installation approach adapted with reference to
-# Lubald/AOSmium-WebView (GPL-2.0) and Lordify/WebView-Changer (GPL-3.0).
+# v1.1.0 - Bootloop fix for LineageOS 23.2 and Pixel 9 series:
+#   com.android.webview (stock AOSP WebView) is NO LONGER hidden.
+#   Hiding it at post-fs-data caused bootloops because /data is not
+#   mounted at that stage so AOSmium was not yet visible to Android,
+#   leaving no valid WebView provider and triggering a system crash.
+#   AOSmium now coexists alongside the stock WebView. Use Developer
+#   Options > WebView implementation to switch after reboot.
+#
+# WebView hiding and install approach adapted from:
+#   Lubald/AOSmium-WebView (GPL-2.0)
+#   Lordify/WebView-Changer (GPL-3.0)
 ##########################################################################
 
 echo
@@ -13,6 +22,7 @@ echo "##################################################"
 echo "##   DresOS AOSmium WebView                    ##"
 echo "##   Chromium 147.0.7727.49                    ##"
 echo "##   Hardened by GrapheneOS / Vanadium patches ##"
+echo "##   v1.1.0 - LineageOS 23.2 bootloop fix      ##"
 echo "##   github.com/DresOperatingSystems            ##"
 echo "##################################################"
 echo
@@ -27,8 +37,7 @@ echo
 
 # ----------------------------------------------------------------
 # dresoswv_remove_update: uninstall a data-partition APK update
-# for a package if one exists. Uses codePath=/data to identify
-# updates installed over the system version.
+# for a package if one exists.
 # ----------------------------------------------------------------
 dresoswv_remove_update() {
     local PKG="$1"
@@ -42,11 +51,15 @@ dresoswv_remove_update() {
 
 # ----------------------------------------------------------------
 # dresoswv_hide: systemlessly hide a package's system path.
-# Finds the system codePath via pm dump, then:
-#   Magisk - creates a .replace file so Magisk bind-mounts an
-#            empty dir over it at boot, hiding it from pm.
-#   KernelSU - creates the dir (setfattr applied in post-fs-data).
-# Saves the path to debloat.sh for post-fs-data and uninstall.
+#
+# IMPORTANT - com.android.webview is deliberately NOT in this list.
+# Hiding it via .replace at post-fs-data stage causes bootloops on
+# LineageOS 23.2 and Android 15+ Pixel devices because /data is not
+# mounted at that stage, so AOSmium (installed to /data/app) is not
+# visible yet, leaving Android with no valid WebView provider.
+#
+# We hide: Google WebView, Chrome, TrichromeLibrary, Samsung/OEM
+# We do NOT hide: com.android.webview (stock AOSP fallback)
 # ----------------------------------------------------------------
 dresoswv_hide() {
     local PKG="$1"
@@ -67,11 +80,13 @@ dresoswv_hide() {
 }
 
 # ----------------------------------------------------------------
-# Step 1: Remove data-partition updates of competing WebViews
+# Step 1: Remove data-partition updates
+# Note: we still remove the com.android.webview DATA update if one
+# exists - we only avoid hiding the SYSTEM version at boot time.
 # ----------------------------------------------------------------
-echo "Removing competing WebView updates..."
-dresoswv_remove_update com.android.chrome
+echo "Removing competing WebView data updates..."
 dresoswv_remove_update com.android.webview
+dresoswv_remove_update com.android.chrome
 dresoswv_remove_update com.google.android.webview
 dresoswv_remove_update org.mozilla.webview_shell
 dresoswv_remove_update com.sec.android.app.chromecustomizations
@@ -80,26 +95,27 @@ echo "Done."
 echo
 
 # ----------------------------------------------------------------
-# Step 2: Systemlessly hide competing system WebView packages
+# Step 2: Systemlessly hide competing WebView packages.
+# com.android.webview is intentionally excluded - see comment above.
 # ----------------------------------------------------------------
-echo "Hiding competing system WebView packages..."
+echo "Hiding competing WebView packages..."
+echo "  Note: com.android.webview kept visible to prevent bootloop"
+echo "  It will appear alongside AOSmium in Developer Options"
 dresoswv_hide com.android.chrome            pkg1
-dresoswv_hide com.android.webview           pkg2
-dresoswv_hide com.google.android.webview    pkg3
-dresoswv_hide org.mozilla.webview_shell     pkg4
-dresoswv_hide com.sec.android.app.chromecustomizations pkg5
-dresoswv_hide com.google.android.trichromelibrary      pkg6
+dresoswv_hide com.google.android.webview    pkg2
+dresoswv_hide org.mozilla.webview_shell     pkg3
+dresoswv_hide com.sec.android.app.chromecustomizations pkg4
+dresoswv_hide com.google.android.trichromelibrary      pkg5
 echo "Done."
 echo
 
 # ----------------------------------------------------------------
-# Step 3: Remap /product /vendor /system_ext into system/
-# so Magisk mounts them correctly regardless of device partitioning.
+# Step 3: Partition remapping
 # ----------------------------------------------------------------
 for PART in product vendor system_ext; do
     PARTDIR="$MODPATH/$PART"
     if [[ -d "$PARTDIR" ]]; then
-        echo "Remapping /$PART → /system/$PART..."
+        echo "Remapping /$PART to /system/$PART..."
         mkdir -p "$MODPATH/system/$PART"
         cp -a "$PARTDIR/." "$MODPATH/system/$PART/"
         rm -rf "$PARTDIR"
@@ -107,17 +123,18 @@ for PART in product vendor system_ext; do
 done
 
 # ----------------------------------------------------------------
-# Step 4: Install AOSmium and place the allowlist overlay
+# Step 4: Install AOSmium and place overlay
 # ----------------------------------------------------------------
 echo "Installing AOSmium..."
 [ -f "$MODPATH/common/install.sh" ] && . "$MODPATH/common/install.sh"
 
 echo
 echo "##################################################"
-echo "##   Installation complete.                    ##"
-echo "##   Reboot, then:                             ##"
+echo "##   Done. REBOOT NOW.                         ##"
+echo "##   After reboot:                             ##"
 echo "##   Settings > Developer Options              ##"
 echo "##   > WebView implementation                  ##"
-echo "##   > Select AOSmium WebView                  ##"
+echo "##   > Select: AOSmium WebView                 ##"
+echo "##   (Stock WebView also visible - that is OK) ##"
 echo "##################################################"
 echo
