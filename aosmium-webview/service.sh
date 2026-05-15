@@ -1,48 +1,50 @@
 #!/system/bin/sh
-# SPDX-License-Identifier: GPL-3.0-or-later
-# DresOS AOSmium WebView - service.sh v1.1.0
-# Copyright (C) 2026 DresOperatingSystems
 
-MODDIR="${0%/*}"
-PKGNAME="org.axpos.aosmium_wv"
-LOG="$MODDIR/activation.log"
+MODDIR=${0%/*}
+mkdir -p "$MODDIR/logs" 2>/dev/null
+LOG="$MODDIR/logs/service.log"
+USER_LOG="$MODDIR/webview_activation.log"
 
-until [[ "$(getprop sys.boot_completed)" = "1" ]]; do sleep 3; done
-sleep 8
+AOSMIUM_PKG="org.axpos.aosmium_wv"
 
-{
-    echo "=== DresOS AOSmium WebView v1.1.0 - boot activation ==="
-    echo "Time:   $(date)"
-    echo "API:    $(getprop ro.build.version.sdk)"
-    echo "ROM:    $(getprop ro.build.display.id)"
-    echo "Device: $(getprop ro.product.model)"
-    echo ""
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$USER_LOG"
+}
 
-    PM_CHECK=$(pm list packages 2>/dev/null | grep "$PKGNAME")
-    echo "AOSmium registered: ${PM_CHECK:-NOT FOUND}"
+log "service.sh start"
 
-    if [[ -z "$PM_CHECK" ]]; then
-        echo "Not registered - retrying pm install..."
-        APK="/system/product/app/AosmiumWebView/AosmiumWebView.apk"
-        [[ ! -f "$APK" ]] && APK="/system/app/AosmiumWebView/AosmiumWebView.apk"
-        [[ ! -f "$APK" ]] && APK="$MODDIR/system/product/app/AosmiumWebView/AosmiumWebView.apk"
-        if [[ -f "$APK" ]]; then
-            cp "$APK" /data/local/tmp/AosmiumWebView.apk
-            RESULT=$(pm install --install-location 1 /data/local/tmp/AosmiumWebView.apk 2>&1)
-            echo "Retry result: $RESULT"
-            rm -f /data/local/tmp/AosmiumWebView.apk
-        else
-            echo "APK not found for retry"
-        fi
-    fi
+resetprop -w sys.boot_completed 0 >/dev/null 2>&1
+sleep 10
 
-    SET=$(cmd webviewupdate set-webview-implementation "$PKGNAME" 2>&1)
-    echo "webviewupdate: $SET"
+if [ -f "$MODDIR/inert" ]; then
+    log "Inert mode active. Skipping."
+    rm -f "$MODDIR/boot_pending"
+    exit 0
+fi
 
-    echo ""
-    echo "--- WebView state ---"
-    dumpsys webviewupdate 2>/dev/null \
-        | grep -iE "current|preferred|packages:|valid|installed|aosmium|webview" \
-        | head -20
+VISIBLE=$(pm list packages "$AOSMIUM_PKG" 2>/dev/null | grep -c "^package:${AOSMIUM_PKG}$")
+if [ "$VISIBLE" -ne 1 ]; then
+    log "FAIL: PackageManager cannot see $AOSMIUM_PKG. Flipping to inert."
+    touch "$MODDIR/inert"
+    rm -f "$MODDIR/boot_pending"
+    exit 0
+fi
 
-} > "$LOG" 2>&1
+cmd webviewupdate enable-redundant-packages >> "$LOG" 2>&1
+SETIMPL_OUT=$(cmd webviewupdate set-webview-implementation "$AOSMIUM_PKG" 2>&1)
+log "set-webview-implementation: $SETIMPL_OUT"
+settings put global webview_provider "$AOSMIUM_PKG" 2>>"$LOG"
+
+sleep 3
+CURRENT=$(dumpsys webviewupdate 2>/dev/null | awk -F'[(),]' '/Current WebView package/ {gsub(/ /, "", $2); print $2; exit}')
+
+if [ "$CURRENT" = "$AOSMIUM_PKG" ]; then
+    log "SUCCESS: Active provider is $AOSMIUM_PKG"
+else
+    log "FAIL: Active provider is '$CURRENT'. Flipping to inert."
+    touch "$MODDIR/inert"
+fi
+
+rm -f "$MODDIR/boot_pending"
+exit 0

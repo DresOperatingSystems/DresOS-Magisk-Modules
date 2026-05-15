@@ -1,8 +1,7 @@
 id=dresoswv
 name=DresOS AOSmium WebView
-version=v1.1.0
-versionCode=11
-author=DresOS
-description=AOSmium v147.0.7727.49 system WebView. v1.1: fixes bootloop on LineageOS 23.2 and Pixel 9 - no longer hides com.android.webview at boot. Hides Google/Chrome WebViews only. AOSmium coexists then select it in Developer Options.
-minMagisk=20400
-updateJson=https://raw.githubusercontent.com/DresOperatingSystems/DresOS-Magisk-Modules/main/aosmium-webview/update.json
+version=v2.1.0
+versionCode=210
+author=DresOperatingSystems
+description=Systemless replacement of Android System WebView with AOSmium WebView Chromium 147.0.7727.49 from AXP.OS. Supports Android 10 through 15 on arm and arm64.
+support=https://xdaforums.com/t/dresos-the-android-defensive-security-system.4787891

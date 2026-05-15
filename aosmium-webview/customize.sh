@@ -1,140 +1,62 @@
 #!/system/bin/sh
-# SPDX-License-Identifier: GPL-3.0-or-later
-# DresOS AOSmium WebView - customize.sh v1.1.0
-# Copyright (C) 2026 DresOperatingSystems
-# https://github.com/DresOperatingSystems/DresOS-Magisk-Modules
-#
-# v1.1.0 - Bootloop fix for LineageOS 23.2 and Pixel 9 series:
-#   com.android.webview (stock AOSP WebView) is NO LONGER hidden.
-#   Hiding it at post-fs-data caused bootloops because /data is not
-#   mounted at that stage so AOSmium was not yet visible to Android,
-#   leaving no valid WebView provider and triggering a system crash.
-#   AOSmium now coexists alongside the stock WebView. Use Developer
-#   Options > WebView implementation to switch after reboot.
-#
-# WebView hiding and install approach adapted from:
-#   Lubald/AOSmium-WebView (GPL-2.0)
-#   Lordify/WebView-Changer (GPL-3.0)
-##########################################################################
 
-echo
-echo "##################################################"
-echo "##   DresOS AOSmium WebView                    ##"
-echo "##   Chromium 147.0.7727.49                    ##"
-echo "##   Hardened by GrapheneOS / Vanadium patches ##"
-echo "##   v1.1.0 - LineageOS 23.2 bootloop fix      ##"
-echo "##   github.com/DresOperatingSystems            ##"
-echo "##################################################"
-echo
+ui_print " "
+ui_print "==============================================="
+ui_print "  DresOS AOSmium WebView"
+ui_print "  Version v2.1.0"
+ui_print "  Chromium 147.0.7727.49 (AXP.OS)"
+ui_print "==============================================="
+ui_print " "
 
-# ----------------------------------------------------------------
-# Validation
-# ----------------------------------------------------------------
-[[ $API -lt 29 ]] && abort "Android 10 (API 29) or higher required. Found: API $API"
-[[ "$ARCH" != "arm" && "$ARCH" != "arm64" ]] && abort "ARM or ARM64 required. Found: $ARCH"
-echo "Device check passed: API $API | $ARCH"
-echo
+if [ -z "$MAGISK_VER_CODE" ] || [ "$MAGISK_VER_CODE" -lt 24000 ]; then
+    abort "! Magisk 24.0 or newer is required."
+fi
 
-# ----------------------------------------------------------------
-# dresoswv_remove_update: uninstall a data-partition APK update
-# for a package if one exists.
-# ----------------------------------------------------------------
-dresoswv_remove_update() {
-    local PKG="$1"
-    local UPDATEPATH
-    UPDATEPATH=$(pm dump "$PKG" | grep "codePath=/data" | grep -o "/.*")
-    if [[ -d "$UPDATEPATH" ]]; then
-        echo "  Removing update: $PKG"
-        pm uninstall "$PKG"
-    fi
-}
+API_LEVEL=$(getprop ro.build.version.sdk)
+if [ "$API_LEVEL" -lt 29 ] || [ "$API_LEVEL" -gt 35 ]; then
+    abort "! Requires Android 10 through 15."
+fi
 
-# ----------------------------------------------------------------
-# dresoswv_hide: systemlessly hide a package's system path.
-#
-# IMPORTANT - com.android.webview is deliberately NOT in this list.
-# Hiding it via .replace at post-fs-data stage causes bootloops on
-# LineageOS 23.2 and Android 15+ Pixel devices because /data is not
-# mounted at that stage, so AOSmium (installed to /data/app) is not
-# visible yet, leaving Android with no valid WebView provider.
-#
-# We hide: Google WebView, Chrome, TrichromeLibrary, Samsung/OEM
-# We do NOT hide: com.android.webview (stock AOSP fallback)
-# ----------------------------------------------------------------
-dresoswv_hide() {
-    local PKG="$1"
-    local VARNAME="$2"
-    local PKGPATH
-    PKGPATH=$(pm dump "$PKG" | grep "codePath" | grep -o "/.*")
-    if [[ -d "$PKGPATH" ]]; then
-        if [[ "$KSU" ]]; then
-            mkdir -p "$MODPATH/$PKGPATH"
-        else
-            mktouch "$MODPATH/$PKGPATH/.replace"
-        fi
-        echo "  Hidden: $PKG ($PKGPATH)"
-        echo "${VARNAME}=${PKGPATH}" >> "$MODPATH/debloat.sh"
-    else
-        echo "  Not found: $PKG"
-    fi
-}
+ABI=$(getprop ro.product.cpu.abi)
+case "$ABI" in
+    arm64-v8a) APK_SRC_NAME="webview64-signed.apk" ;;
+    armeabi-v7a|armeabi) APK_SRC_NAME="webview32-signed.apk" ;;
+    *) abort "! Unsupported ABI: $ABI" ;;
+esac
 
-# ----------------------------------------------------------------
-# Step 1: Remove data-partition updates
-# Note: we still remove the com.android.webview DATA update if one
-# exists - we only avoid hiding the SYSTEM version at boot time.
-# ----------------------------------------------------------------
-echo "Removing competing WebView data updates..."
-dresoswv_remove_update com.android.webview
-dresoswv_remove_update com.android.chrome
-dresoswv_remove_update com.google.android.webview
-dresoswv_remove_update org.mozilla.webview_shell
-dresoswv_remove_update com.sec.android.app.chromecustomizations
-dresoswv_remove_update com.google.android.trichromelibrary
-echo "Done."
-echo
+if ls -d /apex/com.google.android.webview* /apex/com.android.webview.app* >/dev/null 2>&1; then
+    abort "! Device packages WebView as APEX. Not supported."
+fi
 
-# ----------------------------------------------------------------
-# Step 2: Systemlessly hide competing WebView packages.
-# com.android.webview is intentionally excluded - see comment above.
-# ----------------------------------------------------------------
-echo "Hiding competing WebView packages..."
-echo "  Note: com.android.webview kept visible to prevent bootloop"
-echo "  It will appear alongside AOSmium in Developer Options"
-dresoswv_hide com.android.chrome            pkg1
-dresoswv_hide com.google.android.webview    pkg2
-dresoswv_hide org.mozilla.webview_shell     pkg3
-dresoswv_hide com.sec.android.app.chromecustomizations pkg4
-dresoswv_hide com.google.android.trichromelibrary      pkg5
-echo "Done."
-echo
+if ! dumpsys webviewupdate 2>/dev/null | grep -q "Current WebView package"; then
+    abort "! WebViewUpdateService not responding."
+fi
 
-# ----------------------------------------------------------------
-# Step 3: Partition remapping
-# ----------------------------------------------------------------
-for PART in product vendor system_ext; do
-    PARTDIR="$MODPATH/$PART"
-    if [[ -d "$PARTDIR" ]]; then
-        echo "Remapping /$PART to /system/$PART..."
-        mkdir -p "$MODPATH/system/$PART"
-        cp -a "$PARTDIR/." "$MODPATH/system/$PART/"
-        rm -rf "$PARTDIR"
-    fi
-done
+APP_DIR="system/product/app/AOSmiumWebView"
+OVERLAY_DIR="system/product/overlay"
+EXTRA_OVERLAY_DIR=""
 
-# ----------------------------------------------------------------
-# Step 4: Install AOSmium and place overlay
-# ----------------------------------------------------------------
-echo "Installing AOSmium..."
-[ -f "$MODPATH/common/install.sh" ] && . "$MODPATH/common/install.sh"
+[ "$API_LEVEL" -eq 29 ] && EXTRA_OVERLAY_DIR="system/vendor/overlay"
 
-echo
-echo "##################################################"
-echo "##   Done. REBOOT NOW.                         ##"
-echo "##   After reboot:                             ##"
-echo "##   Settings > Developer Options              ##"
-echo "##   > WebView implementation                  ##"
-echo "##   > Select: AOSmium WebView                 ##"
-echo "##   (Stock WebView also visible - that is OK) ##"
-echo "##################################################"
-echo
+MFG=$(getprop ro.product.manufacturer | tr 'A-Z' 'a-z')
+if [ "$MFG" = "samsung" ] && [ -d /system_ext/overlay ]; then
+    OVERLAY_DIR="system/system_ext/overlay"
+fi
+
+mkdir -p "$MODPATH/$APP_DIR" "$MODPATH/$OVERLAY_DIR"
+[ -n "$EXTRA_OVERLAY_DIR" ] && mkdir -p "$MODPATH/$EXTRA_OVERLAY_DIR"
+
+cp -f "$MODPATH/webview/$APK_SRC_NAME" "$MODPATH/$APP_DIR/AOSmiumWebView.apk"
+cp -f "$MODPATH/overlay/DresOSAOSmiumOverlay.apk" "$MODPATH/$OVERLAY_DIR/DresOSAOSmiumOverlay.apk"
+[ -n "$EXTRA_OVERLAY_DIR" ] && cp -f "$MODPATH/overlay/DresOSAOSmiumOverlay.apk" "$MODPATH/$EXTRA_OVERLAY_DIR/DresOSAOSmiumOverlay.apk"
+
+rm -rf "$MODPATH/webview" "$MODPATH/overlay"
+
+set_perm_recursive "$MODPATH/system" 0 0 0755 0644
+
+rm -f "$MODPATH/boot_pending" "$MODPATH/inert" "$MODPATH/disable" 2>/dev/null
+mkdir -p "$MODPATH/logs"
+
+ui_print " "
+ui_print "  Install complete. Reboot to activate."
+ui_print " "

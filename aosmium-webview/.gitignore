@@ -1,0 +1,6 @@
+*.zip
+*.keystore
+*.idsig
+overlay/DresOSAOSmiumOverlay.apk
+overlay/build/
+apks/
