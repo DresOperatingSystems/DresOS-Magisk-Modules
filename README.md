@@ -14,7 +14,7 @@ Replaces Android System WebView with [AOSmium](https://axpos.org/), a Chromium f
 | --- | --- |
 | AOSmium version | 147.0.7727.49 |
 | Package | `org.axpos.aosmium_wv` |
-| Android | 10 through 15 (API 29 to 35) |
+| Android | 10 through 16+ (API 29 to 36+) |
 | ABI | arm, arm64 |
 | Root | Magisk 24.0+ |
 
@@ -24,7 +24,7 @@ See [aosmium-webview/README.md](aosmium-webview/README.md) for details.
 
 | Module | Status |
 | --- | --- |
-| `dresoswv` AOSmium WebView | v2.1.0 |
+| `dresoswv` AOSmium WebView | v2.2.0 |
 | `dresosmicrog` microG | Planned |
 | `dresosdebloat` Debloater | Planned |
 | `dresosperms` Permissions Hardener | Planned |
