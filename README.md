@@ -2,11 +2,11 @@
 
 Part of the [DresOS Android Defensive Security System](https://github.com/DresOperatingSystems/DresOS-The-Android-Defensive-Security-System).
 
-[
+[![Please Help fund future projects and keep this one going](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/dresos)
 
-![Please Help fund future projects and keep this one going](https://ko-fi.com/img/githubbutton_sm.svg)
+> **Help fund the next module.** DresOS is built by a small open source team in our spare time. If our guide saves you a weekend of research, tip the jar at [ko-fi.com/dresos](https://ko-fi.com/dresos). Funds go to test devices, hosting, and developer time on the next Magisk module.
 
-](https://ko-fi.com/dresos)
+---
 
 ## Modules
 
