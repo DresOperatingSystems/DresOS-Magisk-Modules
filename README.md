@@ -24,7 +24,7 @@ Replaces Android System WebView with [DresOS WebView](https://github.com/DresOpe
 | ABI | arm, arm64 |
 | Root | Magisk 24.0+ |
 
-See [webview/README.md](webview/README.md) for details.
+See [webview/README.md](https://github.com/DresOperatingSystems/DresOS-Magisk-Modules/tree/main/webview) for details.
 
 ### microG (`dresosmicrog`)
 
